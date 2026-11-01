@@ -90,6 +90,10 @@
       background: var(--bg); color: var(--text);
     }
     .row { display: flex; align-items: center; gap: 8px; }
+    #updates { margin-top: 16px; }
+    h2 { font-size: 1.1rem; margin: 0 0 12px; }
+    .kv { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); }
+    .kv b { color: var(--text); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -125,6 +129,15 @@
         <button id="btnOff" class="btn-off" disabled>כבה</button>
       </div>
       <p id="msg" class="msg"></p>
+    </section>
+
+    <!-- Software update -->
+    <section id="updates" class="card" hidden>
+      <h2>עדכון תוכנה</h2>
+      <div class="kv"><span>גרסה במכשיר</span><b id="devVersion">—</b></div>
+      <div class="kv"><span>גרסה זמינה</span><b id="newVersion">—</b></div>
+      <button id="btnUpdate" class="btn-main" disabled>עדכן</button>
+      <p id="updateMsg" class="msg"></p>
       <button id="logout" class="link">התנתק</button>
     </section>
   </main>
@@ -135,12 +148,17 @@
     const BROKER_URL    = "wss://g1877f21.ala.asia-southeast1.emqxsl.com:8084/mqtt";
     const TOPIC_COMMAND = "home/lamp/command";
     const TOPIC_STATE   = "home/lamp/state";
+    const TOPIC_VERSION = "home/lamp/version";
+    const TOPIC_UPDATE  = "home/lamp/update";
     const STORAGE_KEY   = "wallSwitchLogin";
     const REPLY_TIMEOUT_MS = 5000;
 
     const $ = (id) => document.getElementById(id);
     let client = null;
     let replyTimer = null;
+    let deviceVersion = null;     // reported by the device
+    let availableVersion = null;  // from firmware/version.json on this site
+    let updating = false;
 
     // ---- saved login (only on this device) ----
     function loadLogin() {
@@ -157,6 +175,7 @@
     function show(section) {
       $("login").hidden = section !== "login";
       $("control").hidden = section !== "control";
+      $("updates").hidden = section !== "control";
     }
     function setConn(text, kind) {
       $("conn").textContent = text;
@@ -164,6 +183,43 @@
       const ready = kind === "ok";
       $("btnOn").disabled = !ready;
       $("btnOff").disabled = !ready;
+      refreshUpdateButton();
+    }
+
+    // ---- software update ----
+    function refreshUpdateButton() {
+      $("devVersion").textContent = deviceVersion || "—";
+      $("newVersion").textContent = availableVersion || "—";
+      const connected = client && client.connected;
+      const hasNew = deviceVersion && availableVersion && deviceVersion !== availableVersion;
+      $("btnUpdate").disabled = !(connected && hasNew && !updating);
+      if (!updating && deviceVersion && availableVersion && !hasNew) {
+        $("updateMsg").textContent = "המכשיר מעודכן.";
+      }
+    }
+    async function loadAvailableVersion() {
+      try {
+        const res = await fetch("firmware/version.json", { cache: "no-store" });
+        availableVersion = res.ok ? (await res.json()).version : null;
+      } catch { availableVersion = null; }
+      refreshUpdateButton();
+    }
+    function showUpdateStatus(text) {
+      // Messages from the device: downloading 40% / installed, restarting / failed: ... / idle
+      if (text.startsWith("downloading")) {
+        updating = true;
+        $("updateMsg").textContent = "מוריד " + text.replace("downloading", "").trim() + "...";
+      } else if (text.startsWith("installed")) {
+        updating = true;
+        $("updateMsg").textContent = "הותקן. המכשיר מאתחל...";
+      } else if (text.startsWith("failed")) {
+        updating = false;
+        $("updateMsg").textContent = "העדכון נכשל, הגרסה הקודמת ממשיכה לעבוד. (" + text.replace("failed:", "").trim() + ")";
+      } else if (text === "idle") {
+        if (updating) $("updateMsg").textContent = "העדכון הצליח!";
+        updating = false;
+      }
+      refreshUpdateButton();
     }
     function showState(state) {
       const el = $("state");
@@ -189,14 +245,18 @@
       client.on("connect", () => {
         if (remember) saveLogin(login);
         setConn("מחובר", "ok");
-        client.subscribe(TOPIC_STATE);  // retained message arrives right away
+        // retained messages arrive right away
+        client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE]);
       });
 
       client.on("message", (topic, payload) => {
+        const text = payload.toString().trim();
+        if (topic === TOPIC_VERSION) { deviceVersion = text; refreshUpdateButton(); return; }
+        if (topic === TOPIC_UPDATE) { showUpdateStatus(text); return; }
         if (topic !== TOPIC_STATE) return;
         clearTimeout(replyTimer);
         $("msg").textContent = "";
-        showState(payload.toString().trim());
+        showState(text);
       });
 
       client.on("reconnect", () => setConn("מתחבר מחדש...", "connecting"));
@@ -234,6 +294,14 @@
     });
     $("btnOn").addEventListener("click", () => send("on"));
     $("btnOff").addEventListener("click", () => send("off"));
+    $("btnUpdate").addEventListener("click", () => {
+      if (!client || !client.connected) return;
+      if (!confirm("לעדכן את המכשיר לגרסה " + availableVersion + "?\nזה לוקח בערך דקה, ובזמן הזה המכשיר לא יגיב.")) return;
+      updating = true;
+      $("updateMsg").textContent = "שולח בקשת עדכון...";
+      refreshUpdateButton();
+      client.publish(TOPIC_COMMAND, "update");
+    });
     $("logout").addEventListener("click", () => {
       if (client) client.end(true);
       client = null;
@@ -244,6 +312,7 @@
     });
 
     // ---- start ----
+    loadAvailableVersion();
     const saved = loadLogin();
     if (saved) connect(saved, true);
     else show("login");
