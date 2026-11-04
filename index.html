@@ -94,6 +94,9 @@
     h2 { font-size: 1.1rem; margin: 0 0 12px; }
     .kv { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); }
     .kv b { color: var(--text); }
+    #control .kv { margin-bottom: 12px; }
+    .dev-online { color: var(--ok) !important; }
+    .dev-offline { color: var(--bad) !important; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -123,6 +126,7 @@
 
     <!-- Control -->
     <section id="control" class="card" hidden>
+      <div class="kv"><span>המכשיר</span><b id="devStatus">לא ידוע</b></div>
       <div id="state" class="state">מצב לא ידוע</div>
       <div class="buttons">
         <button id="btnOn" class="btn-on" disabled>הדלק</button>
@@ -136,6 +140,7 @@
       <h2>עדכון תוכנה</h2>
       <div class="kv"><span>גרסה במכשיר</span><b id="devVersion">—</b></div>
       <div class="kv"><span>גרסה זמינה</span><b id="newVersion">—</b></div>
+      <div class="kv"><span>הפעלה אחרונה</span><b id="bootReason">—</b></div>
       <button id="btnUpdate" class="btn-main" disabled>עדכן</button>
       <p id="updateMsg" class="msg"></p>
       <button id="logout" class="link">התנתק</button>
@@ -150,6 +155,8 @@
     const TOPIC_STATE   = "home/lamp/state";
     const TOPIC_VERSION = "home/lamp/version";
     const TOPIC_UPDATE  = "home/lamp/update";
+    const TOPIC_STATUS  = "home/lamp/status";   // online / offline (Last Will)
+    const TOPIC_BOOT    = "home/lamp/boot";     // why the device last started
     const STORAGE_KEY   = "wallSwitchLogin";
     const REPLY_TIMEOUT_MS = 5000;
 
@@ -159,6 +166,7 @@
     let deviceVersion = null;     // reported by the device
     let availableVersion = null;  // from firmware/version.json on this site
     let updating = false;
+    let deviceOnline = null;      // null = unknown (older device code)
 
     // ---- saved login (only on this device) ----
     function loadLogin() {
@@ -180,17 +188,40 @@
     function setConn(text, kind) {
       $("conn").textContent = text;
       $("conn").className = "pill " + kind;
-      const ready = kind === "ok";
+      refreshButtons();
+    }
+    function refreshButtons() {
+      const ready = client && client.connected && deviceOnline !== false;
       $("btnOn").disabled = !ready;
       $("btnOff").disabled = !ready;
       refreshUpdateButton();
     }
+    function showDeviceStatus(text) {
+      deviceOnline = text === "online";
+      const el = $("devStatus");
+      el.textContent = deviceOnline ? "מחובר" : "לא מחובר";
+      el.className = deviceOnline ? "dev-online" : "dev-offline";
+      if (!deviceOnline) $("msg").textContent = "המכשיר לא מחובר. ייתכן שאין לו חשמל או אינטרנט.";
+      else if ($("msg").textContent.startsWith("המכשיר לא מחובר")) $("msg").textContent = "";
+      refreshButtons();
+    }
+    const BOOT_TEXT = {
+      "power on": "חיבור לחשמל",
+      "brownout (voltage dropped)": "ירידת מתח",
+      "watchdog (code was stuck)": "Watchdog – הקוד נתקע",
+      "crash": "קריסה",
+      "restart: after update": "אחרי עדכון",
+      "restart: no Wi-Fi for 5 min": "אתחול – 5 דקות בלי Wi-Fi",
+      "restart: no broker for 10 min": "אתחול – 10 דקות בלי broker",
+      "restart: setup mode timed out": "אתחול – מצב הגדרה הסתיים",
+      "restart: Wi-Fi reset (BOOT button)": "איפוס Wi-Fi (BOOT)",
+    };
 
     // ---- software update ----
     function refreshUpdateButton() {
       $("devVersion").textContent = deviceVersion || "—";
       $("newVersion").textContent = availableVersion || "—";
-      const connected = client && client.connected;
+      const connected = client && client.connected && deviceOnline !== false;
       const hasNew = deviceVersion && availableVersion && deviceVersion !== availableVersion;
       $("btnUpdate").disabled = !(connected && hasNew && !updating);
       if (!updating && deviceVersion && availableVersion && !hasNew) {
@@ -246,11 +277,13 @@
         if (remember) saveLogin(login);
         setConn("מחובר", "ok");
         // retained messages arrive right away
-        client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE]);
+        client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE, TOPIC_STATUS, TOPIC_BOOT]);
       });
 
       client.on("message", (topic, payload) => {
         const text = payload.toString().trim();
+        if (topic === TOPIC_STATUS) { showDeviceStatus(text); return; }
+        if (topic === TOPIC_BOOT) { $("bootReason").textContent = BOOT_TEXT[text] || text; return; }
         if (topic === TOPIC_VERSION) { deviceVersion = text; refreshUpdateButton(); return; }
         if (topic === TOPIC_UPDATE) { showUpdateStatus(text); return; }
         if (topic !== TOPIC_STATE) return;
