@@ -95,6 +95,14 @@
     .kv { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); }
     .kv b { color: var(--text); }
     #control .kv { margin-bottom: 12px; }
+    .countdown { text-align: center; font-size: 1.1rem; margin: -8px 0 16px; font-variant-numeric: tabular-nums; }
+    .durations { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .durations button {
+      padding: 10px 0; font-size: 0.95rem; font-weight: 500;
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    }
+    .durations button.selected { background: var(--on); color: var(--on-text); border-color: var(--on); }
+    .hint { text-align: center; color: var(--muted); font-size: 0.85rem; margin: 6px 0 14px; }
     .dev-online { color: var(--ok) !important; }
     .dev-offline { color: var(--bad) !important; }
     [hidden] { display: none !important; }
@@ -128,6 +136,16 @@
     <section id="control" class="card" hidden>
       <div class="kv"><span>המכשיר</span><b id="devStatus">לא ידוע</b></div>
       <div id="state" class="state">מצב לא ידוע</div>
+      <p id="countdown" class="countdown" hidden></p>
+      <div class="durations" id="durations">
+        <button data-min="15">15</button>
+        <button data-min="30">30</button>
+        <button data-min="45">45</button>
+        <button data-min="60">60</button>
+        <button data-min="90">90</button>
+        <button data-min="120" class="selected">120</button>
+      </div>
+      <p class="hint">דקות עד כיבוי אוטומטי</p>
       <div class="buttons">
         <button id="btnOn" class="btn-on" disabled>הדלק</button>
         <button id="btnOff" class="btn-off" disabled>כבה</button>
@@ -157,6 +175,7 @@
     const TOPIC_UPDATE  = "home/lamp/update";
     const TOPIC_STATUS  = "home/lamp/status";   // online / offline (Last Will)
     const TOPIC_BOOT    = "home/lamp/boot";     // why the device last started
+    const TOPIC_TIMER   = "home/lamp/timer";    // "0" / end time (seconds) / "left:<seconds>"
     const STORAGE_KEY   = "wallSwitchLogin";
     const REPLY_TIMEOUT_MS = 5000;
 
@@ -167,6 +186,32 @@
     let availableVersion = null;  // from firmware/version.json on this site
     let updating = false;
     let deviceOnline = null;      // null = unknown (older device code)
+    let selectedMinutes = 120;
+    let timerEndMs = 0;           // when the device will turn off (0 = no timer)
+    let countdownTimer = null;
+
+    // ---- heater timer ----
+    function showTimer(text) {
+      if (text === "0" || text === "") timerEndMs = 0;
+      else if (text.startsWith("left:")) timerEndMs = Date.now() + parseInt(text.slice(5), 10) * 1000;
+      else timerEndMs = parseInt(text, 10) * 1000;
+      clearInterval(countdownTimer);
+      tickCountdown();
+      if (timerEndMs) countdownTimer = setInterval(tickCountdown, 1000);
+    }
+    function tickCountdown() {
+      const el = $("countdown");
+      const left = Math.round((timerEndMs - Date.now()) / 1000);
+      if (!timerEndMs || left <= 0) {
+        el.hidden = true;
+        clearInterval(countdownTimer);
+        return;
+      }
+      const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
+      const two = (n) => String(n).padStart(2, "0");
+      el.textContent = "ייכבה בעוד " + (h ? h + ":" + two(m) : m) + ":" + two(s);
+      el.hidden = false;
+    }
 
     // ---- saved login (only on this device) ----
     function loadLogin() {
@@ -277,12 +322,13 @@
         if (remember) saveLogin(login);
         setConn("מחובר", "ok");
         // retained messages arrive right away
-        client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE, TOPIC_STATUS, TOPIC_BOOT]);
+        client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE, TOPIC_STATUS, TOPIC_BOOT, TOPIC_TIMER]);
       });
 
       client.on("message", (topic, payload) => {
         const text = payload.toString().trim();
         if (topic === TOPIC_STATUS) { showDeviceStatus(text); return; }
+        if (topic === TOPIC_TIMER) { showTimer(text); return; }
         if (topic === TOPIC_BOOT) { $("bootReason").textContent = BOOT_TEXT[text] || text; return; }
         if (topic === TOPIC_VERSION) { deviceVersion = text; refreshUpdateButton(); return; }
         if (topic === TOPIC_UPDATE) { showUpdateStatus(text); return; }
@@ -325,7 +371,13 @@
       const login = { user: $("user").value.trim(), pass: $("pass").value };
       connect(login, $("remember").checked);
     });
-    $("btnOn").addEventListener("click", () => send("on"));
+    $("btnOn").addEventListener("click", () => send("on:" + selectedMinutes));
+    $("durations").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-min]");
+      if (!b) return;
+      selectedMinutes = parseInt(b.dataset.min, 10);
+      document.querySelectorAll("#durations button").forEach((x) => x.classList.toggle("selected", x === b));
+    });
     $("btnOff").addEventListener("click", () => send("off"));
     $("btnUpdate").addEventListener("click", () => {
       if (!client || !client.connected) return;
