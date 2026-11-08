@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>מפסק חכם</title>
   <!-- "Add to Home Screen": icon, name, and open full-screen like an app -->
   <link rel="manifest" href="manifest.json">
@@ -10,222 +10,515 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="מפסק">
-  <meta name="theme-color" content="#f5b301">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#f6f3ee">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f4f5f7;
-      --card: #ffffff;
-      --text: #1d2330;
-      --muted: #6b7280;
-      --border: #e3e6eb;
-      --on: #f5b301;
-      --on-text: #3a2a00;
-      --off: #3b4252;
-      --off-text: #ffffff;
-      --ok: #16a34a;
-      --warn: #d97706;
-      --bad: #dc2626;
+      --bg: #f6f3ee;
+      --bg-glow: #fde7b0;
+      --card: rgba(255, 255, 255, 0.82);
+      --card-solid: #ffffff;
+      --text: #1f2430;
+      --muted: #7a7f8c;
+      --line: rgba(31, 36, 48, 0.08);
+      --soft: #f1ede6;
+      --amber: #f5a524;
+      --amber-2: #ffcf5c;
+      --amber-text: #3d2700;
+      --slate: #2b3140;
+      --slate-text: #ffffff;
+      --ok: #1f9d55;
+      --warn: #c97a06;
+      --bad: #d6453d;
+      --shadow: 0 1px 2px rgba(20, 20, 30, 0.04), 0 8px 28px rgba(20, 20, 30, 0.07);
+      --radius: 24px;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #12151b;
-        --card: #1c2028;
-        --text: #e8eaee;
-        --muted: #9aa3b2;
-        --border: #2c323d;
-        --off: #4b5565;
+        --bg: #101318;
+        --bg-glow: #3a2a0c;
+        --card: rgba(28, 32, 40, 0.85);
+        --card-solid: #1c2028;
+        --text: #eceef2;
+        --muted: #9199a8;
+        --line: rgba(255, 255, 255, 0.07);
+        --soft: #252a34;
+        --slate: #3a4252;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
       }
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { background: var(--bg); }
     body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
+      margin: 0; min-height: 100vh; color: var(--text);
+      font-family: "Rubik", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(120% 60% at 50% -10%, var(--bg-glow) 0%, transparent 60%),
+        var(--bg);
+      background-attachment: fixed;
+      display: flex; justify-content: center;
+      transition: background 0.6s ease;
     }
-    main { width: 100%; max-width: 420px; padding: 24px 16px; }
-    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    h1 { font-size: 1.5rem; margin: 0; }
-    .pill {
-      font-size: 0.85rem; padding: 4px 10px; border-radius: 999px;
-      border: 1px solid var(--border); color: var(--muted);
+    body.is-on { --bg-glow: #ffd27a; }
+    @media (prefers-color-scheme: dark) { body.is-on { --bg-glow: #5a3d08; } }
+    main {
+      width: 100%; max-width: 440px;
+      padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; gap: 14px;
     }
-    .pill::before { content: "●"; margin-left: 6px; }
-    .pill.ok::before { color: var(--ok); }
-    .pill.connecting::before { color: var(--warn); }
-    .pill.bad::before { color: var(--bad); }
-    .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 20px;
-    }
-    .state {
-      text-align: center; font-size: 1.4rem; font-weight: 600;
-      padding: 28px 0; margin-bottom: 20px; border-radius: 12px;
-      background: var(--bg);
-    }
-    .state.on { background: var(--on); color: var(--on-text); }
-    .state.off { background: var(--off); color: var(--off-text); }
-    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    button {
-      font: inherit; border: none; border-radius: 12px; cursor: pointer;
-      padding: 18px 0; font-size: 1.15rem; font-weight: 600;
-    }
-    button:disabled { opacity: 0.4; cursor: default; }
-    .btn-on { background: var(--on); color: var(--on-text); }
-    .btn-off { background: var(--off); color: var(--off-text); }
-    .btn-main { width: 100%; background: var(--text); color: var(--card); margin-top: 8px; }
-    .link {
-      background: none; color: var(--muted); font-size: 0.9rem; font-weight: 400;
-      padding: 8px; margin-top: 16px; width: 100%;
-    }
-    .msg { min-height: 1.4em; text-align: center; color: var(--muted); margin: 14px 0 0; }
-    .error { color: var(--bad); min-height: 1.4em; margin: 10px 0 0; }
-    label { display: block; margin-bottom: 14px; font-size: 0.95rem; }
-    input[type=text], input[type=password] {
-      display: block; width: 100%; margin-top: 6px; padding: 12px;
-      font: inherit; border-radius: 10px; border: 1px solid var(--border);
-      background: var(--bg); color: var(--text);
-    }
-    .row { display: flex; align-items: center; gap: 8px; }
-    #updates { margin-top: 16px; }
-    h2 { font-size: 1.1rem; margin: 0 0 12px; }
-    .kv { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); }
-    .kv b { color: var(--text); }
-    #control .kv { margin-bottom: 12px; }
-    .countdown { text-align: center; font-size: 1.1rem; margin: -8px 0 16px; font-variant-numeric: tabular-nums; }
-    .durations { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-    .durations button {
-      padding: 10px 0; font-size: 0.95rem; font-weight: 500;
-      background: var(--bg); color: var(--text); border: 1px solid var(--border);
-    }
-    .durations button.selected { background: var(--on); color: var(--on-text); border-color: var(--on); }
-    .hint { text-align: center; color: var(--muted); font-size: 0.85rem; margin: 6px 0 14px; }
-    .dev-online { color: var(--ok) !important; }
-    .dev-offline { color: var(--bad) !important; }
-    .dev-sleep { color: var(--muted) !important; }
-    .msg.bad { color: var(--bad); }
-    .msg.good { color: var(--ok); }
     [hidden] { display: none !important; }
+    button { font: inherit; color: inherit; border: none; background: none; cursor: pointer; }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    /* ---------- header ---------- */
+    header { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 2px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center;
+      background: linear-gradient(145deg, var(--amber-2), var(--amber)); color: var(--amber-text);
+      box-shadow: 0 4px 14px rgba(245, 165, 36, 0.35);
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 0.8rem; padding: 6px 11px; border-radius: 999px;
+      background: var(--card); border: 1px solid var(--line); color: var(--muted);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+    .pill.ok .dot { background: var(--ok); }
+    .pill.connecting .dot { background: var(--warn); animation: pulse 1.2s infinite; }
+    .pill.bad .dot { background: var(--bad); }
+    @keyframes pulse { 50% { opacity: 0.3; } }
+
+    /* ---------- cards ---------- */
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 20px; box-shadow: var(--shadow);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      animation: rise 0.45s ease both;
+    }
+    .card + .card { animation-delay: 0.06s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+    .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+    .sub { color: var(--muted); font-size: 0.85rem; }
+
+    /* ---------- device status strip ---------- */
+    .status { display: flex; align-items: center; gap: 12px; }
+    .status-icon {
+      width: 40px; height: 40px; border-radius: 14px; background: var(--soft);
+      display: grid; place-items: center; flex: none; color: var(--muted);
+    }
+    .status-icon.awake { color: var(--ok); background: rgba(31, 157, 85, 0.12); }
+    .status-icon .i-awake, .status-icon.awake .i-sleep { display: none; }
+    .status-icon.awake .i-awake { display: block; }
+    .status-icon.late { color: var(--bad); background: rgba(214, 69, 61, 0.12); }
+    .status-text { flex: 1; min-width: 0; }
+    .status-main { font-weight: 500; }
+    .status-main.dev-online { color: var(--ok); }
+    .status-main.dev-offline { color: var(--bad); }
+    .wake-bar { height: 4px; border-radius: 4px; background: var(--soft); margin-top: 12px; overflow: hidden; }
+    .wake-bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--muted); opacity: 0.45; transition: width 1s linear; }
+
+    /* ---------- the big state orb ---------- */
+    .hero { display: flex; flex-direction: column; align-items: center; padding-top: 26px; }
+    .orb-wrap { position: relative; width: 210px; height: 210px; }
+    .orb-wrap > svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: var(--soft); stroke-width: 7; }
+    .ring { fill: none; stroke: var(--amber); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 1s linear, opacity 0.4s; }
+    .orb {
+      position: absolute; inset: 18px; border-radius: 50%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      background: var(--soft); color: var(--muted);
+      transition: background 0.5s ease, color 0.5s ease, box-shadow 0.5s ease, transform 0.2s ease;
+    }
+    .orb .bulb { opacity: 0.55; transition: opacity 0.5s; }
+    .orb.on {
+      background: radial-gradient(circle at 50% 35%, var(--amber-2), var(--amber) 70%);
+      color: var(--amber-text);
+      box-shadow: 0 0 0 10px rgba(245, 165, 36, 0.12), 0 18px 50px rgba(245, 165, 36, 0.55);
+      animation: breathe 3.2s ease-in-out infinite;
+    }
+    .orb.on .bulb { opacity: 1; }
+    .orb.off { background: var(--slate); color: var(--slate-text); }
+    .orb.off .bulb { opacity: 0.7; }
+    @keyframes breathe { 50% { box-shadow: 0 0 0 16px rgba(245, 165, 36, 0.08), 0 22px 60px rgba(245, 165, 36, 0.6); } }
+    .orb-state { font-size: 1.55rem; font-weight: 600; }
+    .orb-time { font-size: 0.95rem; font-variant-numeric: tabular-nums; opacity: 0.85; min-height: 1.2em; }
+
+    /* ---------- controls ---------- */
+    .seg {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 4px;
+      background: var(--soft); border-radius: 14px; margin-top: 26px; width: 100%;
+    }
+    .seg button {
+      padding: 9px 0; border-radius: 10px; font-size: 0.92rem; font-weight: 500; color: var(--muted);
+      transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+    .seg button.selected { background: var(--card-solid); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .hint { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; text-align: center; }
+    .buttons { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; margin-top: 16px; width: 100%; }
+    .btn {
+      padding: 16px 0; border-radius: 16px; font-size: 1.05rem; font-weight: 600;
+      transition: transform 0.12s ease, filter 0.2s;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn-on { background: linear-gradient(145deg, var(--amber-2), var(--amber)); color: var(--amber-text); box-shadow: 0 6px 18px rgba(245, 165, 36, 0.35); }
+    .btn-off { background: var(--slate); color: var(--slate-text); }
+    .btn-main { width: 100%; background: var(--text); color: var(--card-solid); }
+    .btn-ghost { width: 100%; padding: 12px 0; margin-top: 10px; border-radius: 14px; color: var(--muted); font-size: 0.9rem; font-weight: 500; background: var(--soft); }
+
+    /* pending command banner */
+    .pending {
+      display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 14px;
+      padding: 12px 14px; border-radius: 16px; background: var(--soft); font-size: 0.9rem;
+      animation: rise 0.3s ease both;
+    }
+    .pending .ptext { flex: 1; line-height: 1.35; }
+    .pending.good { background: rgba(31, 157, 85, 0.12); color: var(--ok); }
+    .pending.bad { background: rgba(214, 69, 61, 0.1); color: var(--bad); }
+    .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--amber); animation: spin 0.9s linear infinite; flex: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-cancel {
+      padding: 7px 14px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;
+      background: var(--card-solid); color: var(--bad); box-shadow: 0 1px 3px rgba(0,0,0,0.08); flex: none;
+    }
+
+    /* ---------- schedules ---------- */
+    .btn-add {
+      display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; border-radius: 10px;
+      background: var(--soft); font-size: 0.85rem; font-weight: 600;
+    }
+    .sched-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .sched {
+      display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--soft);
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .sched.disabled .sched-info, .sched.past .sched-info { opacity: 0.45; }
+    .sched-time { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+    .sched-info { flex: 1; min-width: 0; }
+    .sched-meta { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+    .empty { text-align: center; color: var(--muted); font-size: 0.9rem; padding: 18px 8px; }
+    .next-run { margin-top: 12px; font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .next-run b { color: var(--text); font-weight: 500; }
+    .sync-note { font-size: 0.8rem; color: var(--warn); margin-top: 8px; }
+    .sync-note.good { color: var(--ok); }
+
+    /* switch */
+    .switch { position: relative; width: 46px; height: 28px; flex: none; }
+    .switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; z-index: 1; }
+    .switch span {
+      position: absolute; inset: 0; border-radius: 999px; background: rgba(120, 125, 140, 0.35); transition: background 0.2s;
+    }
+    .switch span::after {
+      content: ""; position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.2s ease;
+    }
+    .switch input:checked + span { background: var(--amber); }
+    .switch input:checked + span::after { transform: translateX(-18px); }
+
+    /* ---------- device / update card ---------- */
+    .kv { display: flex; justify-content: space-between; padding: 9px 0; color: var(--muted); font-size: 0.9rem; border-bottom: 1px solid var(--line); }
+    .kv:last-of-type { border-bottom: none; }
+    .kv b { color: var(--text); font-weight: 500; }
+    .msg { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 0.88rem; margin: 10px 0 0; }
+    details.more summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+      font-weight: 600;
+    }
+    details.more summary::-webkit-details-marker { display: none; }
+    details.more summary .chev { transition: transform 0.2s; color: var(--muted); }
+    details.more[open] summary .chev { transform: rotate(180deg); }
+    details.more .inner { margin-top: 12px; }
+    .badge { font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--amber); color: var(--amber-text); margin-inline-start: 8px; }
+
+    /* ---------- login ---------- */
+    .login-title { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; }
+    label.field { display: block; margin: 14px 0 0; font-size: 0.88rem; color: var(--muted); }
+    input[type=text], input[type=password], input[type=time], input[type=date] {
+      display: block; width: 100%; margin-top: 6px; padding: 13px 14px;
+      font: inherit; font-size: 1rem; border-radius: 14px; border: 1px solid var(--line);
+      background: var(--soft); color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245, 165, 36, 0.2); }
+    .row { display: flex; align-items: center; gap: 8px; margin: 14px 0; font-size: 0.9rem; }
+    .error { color: var(--bad); min-height: 1.3em; margin: 10px 0 0; font-size: 0.9rem; }
+
+    /* ---------- schedule editor (bottom sheet) ---------- */
+    dialog.sheet {
+      border: none; padding: 0; margin: auto auto 0; width: 100%; max-width: 440px;
+      border-radius: 28px 28px 0 0; background: var(--card-solid); color: var(--text);
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+    }
+    dialog.sheet[open] { animation: up 0.28s cubic-bezier(.2,.8,.2,1); }
+    @keyframes up { from { transform: translateY(100%); } }
+    dialog.sheet::backdrop { background: rgba(10, 12, 18, 0.45); backdrop-filter: blur(2px); }
+    .sheet-body { padding: 10px 20px max(20px, env(safe-area-inset-bottom)); }
+    .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 14px; }
+    .sheet-title { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+    .sheet-label { font-size: 0.85rem; color: var(--muted); margin: 18px 0 8px; }
+    .big-time { font-size: 2rem !important; font-weight: 600; text-align: center; padding: 10px !important; font-variant-numeric: tabular-nums; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--soft); border-radius: 14px; }
+    .tabs button { padding: 9px 0; border-radius: 10px; font-size: 0.9rem; font-weight: 500; color: var(--muted); }
+    .tabs button.selected { background: var(--card-solid); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
+    .days button {
+      aspect-ratio: 1; border-radius: 50%; background: var(--soft); font-weight: 600; font-size: 0.95rem; color: var(--muted);
+      transition: background 0.15s, color 0.15s;
+    }
+    .days button.selected { background: var(--amber); color: var(--amber-text); }
+    .quick { display: flex; gap: 6px; margin-top: 8px; }
+    .quick button { flex: 1; padding: 7px 0; border-radius: 10px; background: var(--soft); font-size: 0.8rem; color: var(--muted); }
+    .sheet-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 22px; }
+    .btn-del { width: 100%; margin-top: 10px; padding: 12px 0; border-radius: 14px; color: var(--bad); font-weight: 500; font-size: 0.9rem; }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <h1>מנורה</h1>
-      <span id="conn" class="pill bad">לא מחובר</span>
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+        </div>
+        <h1 id="title">מנורה</h1>
+      </div>
+      <span id="conn" class="pill bad"><span class="dot"></span><span id="connText">לא מחובר</span></span>
     </header>
 
     <!-- Login: the password is typed here, never written in the code -->
     <section id="login" class="card" hidden>
       <form id="loginForm">
-        <label>שם משתמש
+        <p class="login-title">התחברות</p>
+        <span class="sub">הפרטים נשמרים רק במכשיר הזה.</span>
+        <label class="field">שם משתמש
           <input id="user" type="text" autocomplete="username" autocapitalize="none" required>
         </label>
-        <label>סיסמה
+        <label class="field">סיסמה
           <input id="pass" type="password" autocomplete="current-password" required>
         </label>
         <label class="row">
           <input id="remember" type="checkbox" checked> לזכור במכשיר הזה
         </label>
-        <button type="submit" class="btn-main">התחבר</button>
+        <button type="submit" class="btn btn-main">התחבר</button>
         <p id="loginError" class="error"></p>
       </form>
     </section>
 
-    <!-- Control -->
-    <section id="control" class="card" hidden>
-      <div class="kv"><span>המכשיר</span><b id="devStatus">לא ידוע</b></div>
-      <div class="kv"><span>נראה לאחרונה</span><b id="devSeen">—</b></div>
-      <div id="state" class="state">מצב לא ידוע</div>
-      <p id="countdown" class="countdown" hidden></p>
-      <div class="durations" id="durations">
-        <button data-min="15">15</button>
-        <button data-min="30">30</button>
-        <button data-min="45">45</button>
-        <button data-min="60">60</button>
-        <button data-min="90">90</button>
-        <button data-min="120" class="selected">120</button>
+    <!-- Device status -->
+    <section id="statusCard" class="card" hidden>
+      <div class="status">
+        <div id="statusIcon" class="status-icon" aria-hidden="true">
+          <svg class="i-sleep" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="i-awake" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>
+        </div>
+        <div class="status-text">
+          <div id="devStatus" class="status-main">לא ידוע</div>
+          <div class="sub">נראה לאחרונה: <span id="devSeen">—</span></div>
+        </div>
       </div>
-      <p class="hint">דקות עד כיבוי אוטומטי</p>
-      <div class="buttons">
-        <button id="btnOn" class="btn-on" disabled>הדלק</button>
-        <button id="btnOff" class="btn-off" disabled>כבה</button>
-      </div>
-      <p id="msg" class="msg"></p>
-      <button id="btnAwake" class="link">השאר ער 10 דקות (פקודות מיידיות)</button>
+      <div class="wake-bar" id="wakeBarWrap"><i id="wakeBar"></i></div>
     </section>
 
-    <!-- Software update -->
+    <!-- Control -->
+    <section id="control" class="card" hidden>
+      <div class="hero">
+        <div class="orb-wrap">
+          <svg viewBox="0 0 210 210" aria-hidden="true">
+            <circle class="ring-bg" cx="105" cy="105" r="100"/>
+            <circle id="ring" class="ring" cx="105" cy="105" r="100" stroke-dasharray="628.3" stroke-dashoffset="628.3" style="opacity:0"/>
+          </svg>
+          <div id="state" class="orb">
+            <svg class="bulb" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V17h5v-1.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>
+            <div id="stateText" class="orb-state">—</div>
+            <div id="countdown" class="orb-time"></div>
+          </div>
+        </div>
+
+        <div class="seg" id="durations" role="group" aria-label="משך עד כיבוי">
+          <button data-min="15">15</button>
+          <button data-min="30">30</button>
+          <button data-min="45">45</button>
+          <button data-min="60">60</button>
+          <button data-min="90">90</button>
+          <button data-min="120" class="selected">120</button>
+        </div>
+        <p class="hint">דקות עד כיבוי אוטומטי</p>
+
+        <div class="buttons">
+          <button id="btnOn" class="btn btn-on" disabled>הדלק</button>
+          <button id="btnOff" class="btn btn-off" disabled>כבה</button>
+        </div>
+
+        <div id="pending" class="pending" hidden>
+          <span id="pendingSpin" class="spinner"></span>
+          <span id="msg" class="ptext"></span>
+          <button id="btnCancel" class="btn-cancel" hidden>בטל</button>
+        </div>
+
+        <button id="btnAwake" class="btn-ghost">השאר ער 10 דקות (פקודות מיידיות)</button>
+      </div>
+    </section>
+
+    <!-- Schedules -->
+    <section id="schedCard" class="card" hidden>
+      <div class="card-head">
+        <h2>תזמונים</h2>
+        <button id="btnAddSched" class="btn-add" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          הוסף
+        </button>
+      </div>
+      <ul id="schedList" class="sched-list"></ul>
+      <div id="schedEmpty" class="empty">אין תזמונים עדיין.<br>אפשר להוסיף הדלקה קבועה, למשל כל בוקר ב־06:30.</div>
+      <div id="nextRun" class="next-run" hidden>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span>ההדלקה הבאה: <b id="nextRunText"></b></span>
+      </div>
+      <div id="schedSync" class="sync-note" hidden></div>
+    </section>
+
+    <!-- Device & software update -->
     <section id="updates" class="card" hidden>
-      <h2>עדכון תוכנה</h2>
-      <div class="kv"><span>גרסה במכשיר</span><b id="devVersion">—</b></div>
-      <div class="kv"><span>גרסה זמינה</span><b id="newVersion">—</b></div>
-      <div class="kv"><span>הפעלה אחרונה</span><b id="bootReason">—</b></div>
-      <button id="btnUpdate" class="btn-main" disabled>עדכן</button>
-      <p id="updateMsg" class="msg"></p>
-      <button id="logout" class="link">התנתק</button>
+      <details class="more" id="moreDetails">
+        <summary>
+          <span>מכשיר ועדכונים<span id="updBadge" class="badge" hidden>עדכון זמין</span></span>
+          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="inner">
+          <div class="kv"><span>גרסה במכשיר</span><b id="devVersion">—</b></div>
+          <div class="kv"><span>גרסה זמינה</span><b id="newVersion">—</b></div>
+          <div class="kv"><span>הפעלה אחרונה</span><b id="bootReason">—</b></div>
+          <button id="btnUpdate" class="btn btn-main" style="margin-top:14px" disabled>עדכן</button>
+          <p id="updateMsg" class="msg"></p>
+          <button id="logout" class="btn-ghost">התנתק</button>
+        </div>
+      </details>
     </section>
   </main>
+
+  <!-- Schedule editor -->
+  <dialog id="sheet" class="sheet">
+    <form method="dialog" class="sheet-body" id="sheetForm">
+      <div class="grabber"></div>
+      <p class="sheet-title" id="sheetTitle">תזמון חדש</p>
+
+      <p class="sheet-label">שעת הדלקה</p>
+      <input id="fTime" type="time" class="big-time" required>
+
+      <p class="sheet-label">משך (דקות)</p>
+      <div class="seg" id="fDur" style="margin-top:0">
+        <button type="button" data-min="15">15</button>
+        <button type="button" data-min="30">30</button>
+        <button type="button" data-min="45">45</button>
+        <button type="button" data-min="60">60</button>
+        <button type="button" data-min="90">90</button>
+        <button type="button" data-min="120">120</button>
+      </div>
+
+      <p class="sheet-label">חזרה</p>
+      <div class="tabs" id="fMode">
+        <button type="button" data-mode="week">ימים בשבוע</button>
+        <button type="button" data-mode="once">פעם אחת</button>
+      </div>
+      <div id="fWeek">
+        <div class="days" id="fDays">
+          <button type="button" data-d="0">א</button>
+          <button type="button" data-d="1">ב</button>
+          <button type="button" data-d="2">ג</button>
+          <button type="button" data-d="3">ד</button>
+          <button type="button" data-d="4">ה</button>
+          <button type="button" data-d="5">ו</button>
+          <button type="button" data-d="6">ש</button>
+        </div>
+        <div class="quick">
+          <button type="button" data-mask="127">כל יום</button>
+          <button type="button" data-mask="31">א׳–ה׳</button>
+          <button type="button" data-mask="96">סופ״ש</button>
+        </div>
+      </div>
+      <div id="fOnce" hidden>
+        <input id="fDate" type="date">
+      </div>
+
+      <p id="fError" class="error"></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-ghost" style="margin:0" id="fClose">ביטול</button>
+        <button type="button" class="btn btn-main" id="fSave">שמור</button>
+      </div>
+      <button type="button" class="btn-del" id="fDelete" hidden>מחק תזמון</button>
+    </form>
+  </dialog>
 
   <!-- MQTT.js: lets the browser talk MQTT over a WebSocket -->
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script>
-    const BROKER_URL    = "wss://j8f80a11.ala.eu-central-1.emqxsl.com:8084/mqtt";
-    const TOPIC_COMMAND = "home/lamp/command";
-    const TOPIC_STATE   = "home/lamp/state";
-    const TOPIC_VERSION = "home/lamp/version";
-    const TOPIC_UPDATE  = "home/lamp/update";
-    const TOPIC_STATUS  = "home/lamp/status";   // online (awake) / sleeping
-    const TOPIC_BOOT    = "home/lamp/boot";     // why the device last started
-    const TOPIC_TIMER   = "home/lamp/timer";    // "0" / end time (seconds) / "left:<seconds>"
-    const TOPIC_SEEN    = "home/lamp/seen";     // "<epoch>,<sleep seconds>"
-    const TOPIC_ACK     = "home/lamp/ack";      // id of the last command the device did
-    const TOPIC_AWAKE   = "home/lamp/awake";    // "stay awake" until <epoch>, or "0"
-    const STORAGE_KEY   = "wallSwitchLogin";
-    const CMD_LATE_S    = 5 * 60;    // not done after 5 min -> show a warning
-    const CMD_MAX_AGE_S = 15 * 60;   // the device ignores older commands
-    const NAMES = { on: "הדלקה", off: "כיבוי", update: "עדכון", awake: "השאר ער" };
+    const BROKER_URL     = "wss://j8f80a11.ala.eu-central-1.emqxsl.com:8084/mqtt";
+    const TOPIC_COMMAND  = "home/lamp/command";
+    const TOPIC_STATE    = "home/lamp/state";
+    const TOPIC_VERSION  = "home/lamp/version";
+    const TOPIC_UPDATE   = "home/lamp/update";
+    const TOPIC_STATUS   = "home/lamp/status";   // online (awake) / sleeping
+    const TOPIC_BOOT     = "home/lamp/boot";     // why the device last started
+    const TOPIC_TIMER    = "home/lamp/timer";    // "0" / end time (seconds) / "left:<seconds>"
+    const TOPIC_SEEN     = "home/lamp/seen";     // "<epoch>,<sleep seconds>,..."
+    const TOPIC_ACK      = "home/lamp/ack";      // id of the last command the device did
+    const TOPIC_AWAKE    = "home/lamp/awake";    // "stay awake" until <epoch>, or "0"
+    const TOPIC_SCHEDULE = "home/lamp/schedule"; // "n,on,HH:MM,minutes,days;..." or "none"
+    const STORAGE_KEY    = "wallSwitchLogin";
+    const CMD_LATE_S     = 5 * 60;    // not done after 5 min -> show a warning
+    const CMD_MAX_AGE_S  = 15 * 60;   // the device ignores older commands
+    const MAX_SCHEDULES  = 8;         // the device keeps up to 8
+    const NAMES = { on: "הדלקה", off: "כיבוי", update: "עדכון תוכנה", awake: "השאר ער" };
+    const DAY_NAMES = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
+    const STEPS = [15, 30, 45, 60, 90, 120];
 
     const $ = (id) => document.getElementById(id);
+    const two = (n) => String(n).padStart(2, "0");
     let client = null;
     let devStatus = null;         // "online" (awake) / "sleeping"
     let seenS = 0, sleepS = 0;    // last time the device was seen + how long it sleeps
     let lastCmd = null;           // { id, cmd } - the command waiting on the broker
     let lastAck = null;           // id of the last command done
     let justDone = 0;             // to show "done" for a few seconds
+    let cancelled = null;         // { id, name, at } - a command the user cancelled
     let awakeUntilS = 0;          // "stay awake" mode ends at this time (0 = off)
     let deviceVersion = null;     // reported by the device
     let availableVersion = null;  // from firmware/version.json on this site
     let updating = false;
-    let deviceOnline = null;      // null = unknown (older device code)
     let selectedMinutes = 120;
     let timerEndMs = 0;           // when the device will turn off (0 = no timer)
-    let countdownTimer = null;
+    let timerTotalS = 0;          // for the ring around the orb
+    let heaterState = null;
+    let schedules = [];           // [{ on, h, m, min, mask, ymd }]
+    let schedSentAt = 0;          // when we last sent the list (ms), to show "waiting for the device"
 
     // ---- heater timer ----
     function showTimer(text) {
       if (text === "0" || text === "") timerEndMs = 0;
       else if (text.startsWith("left:")) timerEndMs = Date.now() + parseInt(text.slice(5), 10) * 1000;
       else timerEndMs = parseInt(text, 10) * 1000;
-      clearInterval(countdownTimer);
+      const left = (timerEndMs - Date.now()) / 1000;
+      // The full length is not sent - use the closest step that fits.
+      timerTotalS = timerEndMs ? (STEPS.find((m) => m * 60 >= left - 5) || 120) * 60 : 0;
       tickCountdown();
-      if (timerEndMs) countdownTimer = setInterval(tickCountdown, 1000);
     }
     function tickCountdown() {
-      const el = $("countdown");
+      const el = $("countdown"), ring = $("ring");
       const left = Math.round((timerEndMs - Date.now()) / 1000);
-      if (!timerEndMs || left <= 0) {
-        el.hidden = true;
-        clearInterval(countdownTimer);
+      if (!timerEndMs || left <= 0 || heaterState !== "on") {
+        el.textContent = heaterState === "on" ? "" : "";
+        ring.style.opacity = 0;
         return;
       }
       const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
-      const two = (n) => String(n).padStart(2, "0");
-      el.textContent = "ייכבה בעוד " + (h ? h + ":" + two(m) : m) + ":" + two(s);
-      el.hidden = false;
+      el.textContent = "נכבה בעוד " + (h ? h + ":" + two(m) : m) + ":" + two(s);
+      ring.style.opacity = 1;
+      const frac = Math.max(0, Math.min(1, left / (timerTotalS || 7200)));
+      ring.style.strokeDashoffset = String(628.3 * (1 - frac));
     }
 
     // ---- saved login (only on this device) ----
@@ -242,26 +535,23 @@
     // ---- screen helpers ----
     function show(section) {
       $("login").hidden = section !== "login";
-      $("control").hidden = section !== "control";
-      $("updates").hidden = section !== "control";
+      for (const id of ["statusCard", "control", "schedCard", "updates"]) $(id).hidden = section !== "control";
     }
     function setConn(text, kind) {
-      $("conn").textContent = text;
+      $("connText").textContent = text;
       $("conn").className = "pill " + kind;
       refreshButtons();
     }
     function refreshButtons() {
       // The device sleeps most of the time - commands wait for it on the broker.
-      const ready = client && client.connected;
+      const ready = !!(client && client.connected);
       $("btnOn").disabled = !ready;
       $("btnOff").disabled = !ready;
+      $("btnAwake").disabled = !ready;
+      $("btnAddSched").disabled = !ready || schedules.length >= MAX_SCHEDULES;
       refreshUpdateButton();
     }
-    function showDeviceStatus(text) {
-      devStatus = text;
-      deviceOnline = text === "online" || text === "sleeping";
-      tick();
-    }
+    function showDeviceStatus(text) { devStatus = text; tick(); }
     function showSeen(text) {
       const [t, sl] = text.split(",");
       seenS = parseInt(t, 10) || 0;
@@ -273,57 +563,77 @@
       if (sec < 3600) return "לפני " + Math.round(sec / 60) + " דקות";
       return new Date(seenS * 1000).toLocaleString("he-IL", { weekday: "short", hour: "2-digit", minute: "2-digit" });
     }
-    // Runs every second: device status, "last seen", and the waiting command.
+    function cmdName(cmd) {
+      if (cmd === "awake:0") return "חזרה לשינה";
+      return NAMES[cmd.split(":")[0]] || cmd;
+    }
+
+    // Runs every second: device status, "last seen", the waiting command, the countdown.
     function tick() {
       const now = Date.now() / 1000;
-      const el = $("devStatus");
+      const el = $("devStatus"), icon = $("statusIcon");
       const nextWake = seenS + sleepS;          // when it should wake up next
       let late = false;
       const inAwakeMode = awakeUntilS > now;
       $("btnAwake").textContent = inAwakeMode ? "חזור לשינה" : "השאר ער 10 דקות (פקודות מיידיות)";
-      if (devStatus === "online" && inAwakeMode) {
-        const until = new Date(awakeUntilS * 1000).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-        el.textContent = "ער עד " + until; el.className = "dev-online";
-      } else if (devStatus === "online") {
-        el.textContent = "ער"; el.className = "dev-online";
+      icon.className = "status-icon";
+      $("wakeBarWrap").hidden = true;
+      if (devStatus === "online") {
+        const until = inAwakeMode ? new Date(awakeUntilS * 1000).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : "";
+        el.textContent = inAwakeMode ? "ער עד " + until + " · פקודות מיידיות" : "ער עכשיו";
+        el.className = "status-main dev-online"; icon.classList.add("awake");
       } else if (devStatus === "sleeping" && seenS) {
         const left = Math.round(nextWake - now);
         late = left < -120;                      // 2 min past the expected wake-up
-        if (late) { el.textContent = "לא מגיב"; el.className = "dev-offline"; }
-        else { el.textContent = left > 0 ? "ישן · מתעורר בעוד " + left + " שנ׳" : "מתעורר..."; el.className = "dev-sleep"; }
+        if (late) { el.textContent = "לא מגיב"; el.className = "status-main dev-offline"; icon.classList.add("late"); }
+        else {
+          el.textContent = left > 0 ? "ישן · מתעורר בעוד " + left + " שנ׳" : "מתעורר...";
+          el.className = "status-main";
+          if (sleepS > 0) {
+            $("wakeBarWrap").hidden = false;
+            $("wakeBar").style.width = Math.max(0, Math.min(100, (now - seenS) / sleepS * 100)) + "%";
+          }
+        }
       } else if (devStatus === "offline") {
-        el.textContent = "לא מחובר"; el.className = "dev-offline";
+        el.textContent = "לא מחובר"; el.className = "status-main dev-offline"; icon.classList.add("late");
       } else {
-        el.textContent = "לא ידוע"; el.className = "";
+        el.textContent = "לא ידוע"; el.className = "status-main";
       }
       $("devSeen").textContent = devStatus === "online" ? "עכשיו" : (seenS ? ago(Math.max(0, Math.round(now - seenS))) : "—");
 
       // The waiting command
-      const m = $("msg");
-      m.className = "msg";
+      const box = $("pending"), m = $("msg"), spin = $("pendingSpin"), cancel = $("btnCancel");
+      let text = "", kind = "", busy = false, canCancel = false;
       if (lastCmd && lastCmd.id !== lastAck) {
         const age = now - lastCmd.id / 1000;
-        const name = lastCmd.cmd === "awake:0" ? "חזרה לשינה" : (NAMES[lastCmd.cmd.split(":")[0]] || lastCmd.cmd);
+        const name = cmdName(lastCmd.cmd);
         if (age > CMD_MAX_AGE_S) {
-          m.textContent = name + " – לא בוצע: המכשיר לא התעורר 15 דקות, והפקודה בוטלה.";
-          m.className = "msg bad";
+          text = name + " – לא בוצע: המכשיר לא התעורר 15 דקות, והפקודה בוטלה."; kind = "bad";
         } else if (age > CMD_LATE_S || late) {
-          m.textContent = name + " – עוד לא בוצע. ייתכן שלמכשיר אין חשמל או אינטרנט.";
-          m.className = "msg bad";
+          text = name + " – עוד לא בוצע. ייתכן שלמכשיר אין חשמל או אינטרנט."; kind = "bad"; canCancel = true;
         } else if (devStatus === "online") {
-          m.textContent = name + " – מבצע...";
+          text = name + " – מבצע..."; busy = true;
         } else {
           const left = Math.round(nextWake - now);
-          m.textContent = name + " – נשלח, יתבצע כשהמכשיר יתעורר" + (left > 0 ? " (בעוד כ־" + left + " שנ׳)" : "...");
+          text = name + " – נשלח, יתבצע כשהמכשיר יתעורר" + (left > 0 ? " (בעוד כ־" + left + " שנ׳)" : "...");
+          busy = true; canCancel = true;
         }
+      } else if (cancelled && Date.now() - cancelled.at < 5000) {
+        text = cancelled.done ? cancelled.name + " – כבר בוצע לפני הביטול." : cancelled.name + " – בוטל ✓";
+        kind = cancelled.done ? "bad" : "good";
       } else if (Date.now() - justDone < 4000) {
-        m.textContent = "בוצע ✓"; m.className = "msg good";
+        text = "בוצע ✓"; kind = "good";
       } else if (late) {
-        m.textContent = "המכשיר לא התעורר בזמן. ייתכן שאין לו חשמל או אינטרנט.";
-        m.className = "msg bad";
-      } else {
-        m.textContent = "";
+        text = "המכשיר לא התעורר בזמן. ייתכן שאין לו חשמל או אינטרנט."; kind = "bad";
       }
+      m.textContent = text;
+      box.hidden = !text;
+      box.className = "pending" + (kind ? " " + kind : "");
+      spin.hidden = !busy;
+      cancel.hidden = !canCancel;
+
+      tickCountdown();
+      renderSchedSync();
     }
     setInterval(tick, 1000);
     const BOOT_TEXT = {
@@ -343,6 +653,7 @@
       $("newVersion").textContent = availableVersion || "—";
       const connected = client && client.connected;
       const hasNew = deviceVersion && availableVersion && deviceVersion !== availableVersion;
+      $("updBadge").hidden = !hasNew;
       $("btnUpdate").disabled = !(connected && hasNew && !updating);
       if (!updating && deviceVersion && availableVersion && !hasNew) {
         $("updateMsg").textContent = "המכשיר מעודכן.";
@@ -373,10 +684,174 @@
       refreshUpdateButton();
     }
     function showState(state) {
+      heaterState = state;
       const el = $("state");
-      if (state === "on") { el.textContent = "דולק"; el.className = "state on"; }
-      else if (state === "off") { el.textContent = "כבוי"; el.className = "state off"; }
-      else { el.textContent = "מצב לא ידוע"; el.className = "state"; }
+      if (state === "on") { $("stateText").textContent = "דולק"; el.className = "orb on"; }
+      else if (state === "off") { $("stateText").textContent = "כבוי"; el.className = "orb off"; }
+      else { $("stateText").textContent = "—"; el.className = "orb"; }
+      document.body.classList.toggle("is-on", state === "on");
+      tickCountdown();
+    }
+
+    // ---- schedules ----
+    // Text format (the device reads the same): "n,on,HH:MM,minutes,days" joined by ";".
+    // days = bit mask (bit 0 = Sunday) or "dYYYYMMDD" for one date. "none" = no schedules.
+    function parseSchedules(text) {
+      const list = [];
+      if (!text || text === "none") return list;
+      for (const e of text.split(";")) {
+        const p = e.split(",");
+        if (p.length < 5) continue;
+        const [h, m] = p[2].split(":").map((x) => parseInt(x, 10));
+        const d = p[4].trim();
+        const s = { on: p[1] === "1", h, m, min: parseInt(p[3], 10) || 30, mask: 0, ymd: 0 };
+        if (d.startsWith("d")) s.ymd = parseInt(d.slice(1), 10) || 0; else s.mask = parseInt(d, 10) || 0;
+        if (h >= 0 && h <= 23 && m >= 0 && m <= 59) list.push(s);
+      }
+      return list;
+    }
+    function scheduleText(list) {
+      if (!list.length) return "none";
+      return list.map((s, i) => [i + 1, s.on ? 1 : 0, two(s.h) + ":" + two(s.m), s.min,
+                                 s.ymd ? "d" + s.ymd : s.mask].join(",")).join(";");
+    }
+    function ymdOf(date) { return date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate(); }
+    function dateOfYmd(ymd) { return new Date(Math.floor(ymd / 10000), Math.floor(ymd / 100) % 100 - 1, ymd % 100); }
+    // Next start time of one schedule (Date), or null.
+    function nextStart(s, from = new Date()) {
+      for (let off = 0; off <= 7; off++) {
+        const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + off, s.h, s.m);
+        if (d <= from) continue;
+        if (s.ymd ? ymdOf(d) === s.ymd : (s.mask >> d.getDay()) & 1) return d;
+      }
+      if (s.ymd) { const d = dateOfYmd(s.ymd); d.setHours(s.h, s.m); return d > from ? d : null; }
+      return null;
+    }
+    function daysLabel(s) {
+      if (s.ymd) {
+        const d = dateOfYmd(s.ymd), today = new Date();
+        const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const diff = Math.round((d - t0) / 86400000);
+        const when = diff === 0 ? "היום" : diff === 1 ? "מחר" : d.getDate() + "." + (d.getMonth() + 1);
+        return "פעם אחת · " + when;
+      }
+      if (s.mask === 127) return "כל יום";
+      if (s.mask === 31) return "א׳–ה׳";
+      if (s.mask === 96) return "סופ״ש";
+      return DAY_NAMES.filter((_, i) => (s.mask >> i) & 1).join(" ");
+    }
+    function whenLabel(d) {
+      const today = new Date();
+      const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - t0) / 86400000);
+      const hm = two(d.getHours()) + ":" + two(d.getMinutes());
+      if (diff === 0) return "היום " + hm;
+      if (diff === 1) return "מחר " + hm;
+      return "יום " + DAY_NAMES[d.getDay()] + " " + hm;
+    }
+    function renderSchedules() {
+      const ul = $("schedList");
+      ul.innerHTML = "";
+      schedules.forEach((s, i) => {
+        const past = s.ymd && !nextStart(s);
+        const li = document.createElement("li");
+        li.className = "sched" + (s.on ? "" : " disabled") + (past ? " past" : "");
+        li.innerHTML =
+          '<div class="sched-info"><div class="sched-time"></div><div class="sched-meta"></div></div>' +
+          '<label class="switch" aria-label="פעיל"><input type="checkbox"><span></span></label>';
+        li.querySelector(".sched-time").textContent = two(s.h) + ":" + two(s.m);
+        li.querySelector(".sched-meta").textContent = daysLabel(s) + " · " + s.min + " דק׳" + (past ? " · עבר" : "");
+        const cb = li.querySelector("input");
+        cb.checked = s.on;
+        cb.addEventListener("click", (e) => e.stopPropagation());
+        cb.addEventListener("change", () => { schedules[i].on = cb.checked; publishSchedules(); });
+        li.querySelector(".switch").addEventListener("click", (e) => e.stopPropagation());
+        li.addEventListener("click", () => openSheet(i));
+        ul.appendChild(li);
+      });
+      $("schedEmpty").hidden = schedules.length > 0;
+      let next = null;
+      for (const s of schedules) {
+        if (!s.on) continue;
+        const d = nextStart(s);
+        if (d && (!next || d < next.d)) next = { d, s };
+      }
+      $("nextRun").hidden = !next;
+      if (next) $("nextRunText").textContent = whenLabel(next.d) + " · ל־" + next.s.min + " דק׳";
+      refreshButtons();
+    }
+    function renderSchedSync() {
+      const el = $("schedSync");
+      if (!schedSentAt) { el.hidden = true; return; }
+      const received = seenS * 1000 > schedSentAt || devStatus === "online" && Date.now() - schedSentAt > 3000;
+      if (received && Date.now() - schedSentAt > 60 * 60 * 1000) { el.hidden = true; return; }
+      el.hidden = false;
+      if (received) { el.textContent = "המכשיר קיבל את התזמונים ✓"; el.className = "sync-note good"; }
+      else {
+        const left = Math.round(seenS + sleepS - Date.now() / 1000);
+        el.textContent = "ממתין למכשיר – יתעדכן כשיתעורר" + (left > 0 ? " (בעוד כ־" + left + " שנ׳)" : "...");
+        el.className = "sync-note";
+      }
+    }
+    function publishSchedules() {
+      if (!client || !client.connected) return;
+      client.publish(TOPIC_SCHEDULE, scheduleText(schedules), { qos: 1, retain: true });
+      schedSentAt = Date.now();
+      renderSchedules();
+      renderSchedSync();
+    }
+
+    // ---- schedule editor ----
+    let editIndex = -1, fMin = 30, fMode = "week", fMask = 31;
+    function setSel(groupId, attr, value) {
+      document.querySelectorAll("#" + groupId + " button").forEach((b) => b.classList.toggle("selected", b.dataset[attr] === String(value)));
+    }
+    function renderDays() {
+      document.querySelectorAll("#fDays button").forEach((b) => b.classList.toggle("selected", !!((fMask >> b.dataset.d) & 1)));
+    }
+    function setMode(mode) {
+      fMode = mode;
+      setSel("fMode", "mode", mode);
+      $("fWeek").hidden = mode !== "week";
+      $("fOnce").hidden = mode !== "once";
+    }
+    function openSheet(i) {
+      editIndex = i;
+      const s = i >= 0 ? schedules[i] : null;
+      $("sheetTitle").textContent = s ? "עריכת תזמון" : "תזמון חדש";
+      $("fDelete").hidden = !s;
+      $("fError").textContent = "";
+      const soon = new Date(Date.now() + 60 * 60 * 1000);
+      $("fTime").value = s ? two(s.h) + ":" + two(s.m) : two(soon.getHours()) + ":00";
+      fMin = s ? (STEPS.find((x) => x >= s.min) || 120) : 30;
+      setSel("fDur", "min", fMin);
+      fMask = s && !s.ymd ? s.mask : 31;
+      renderDays();
+      const d = s && s.ymd ? dateOfYmd(s.ymd) : new Date();
+      $("fDate").value = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+      setMode(s && s.ymd ? "once" : "week");
+      $("sheet").showModal();
+    }
+    function saveSheet() {
+      const t = $("fTime").value;
+      if (!t) { $("fError").textContent = "צריך לבחור שעה."; return; }
+      const [h, m] = t.split(":").map((x) => parseInt(x, 10));
+      const s = { on: true, h, m, min: fMin, mask: 0, ymd: 0 };
+      if (fMode === "week") {
+        if (!fMask) { $("fError").textContent = "צריך לבחור לפחות יום אחד."; return; }
+        s.mask = fMask;
+      } else {
+        const v = $("fDate").value;
+        if (!v) { $("fError").textContent = "צריך לבחור תאריך."; return; }
+        const [y, mo, d] = v.split("-").map((x) => parseInt(x, 10));
+        s.ymd = y * 10000 + mo * 100 + d;
+        if (!nextStart(s)) { $("fError").textContent = "הזמן הזה כבר עבר."; return; }
+      }
+      if (editIndex >= 0) { s.on = schedules[editIndex].on; schedules[editIndex] = s; }
+      else schedules.push(s);
+      schedules.sort((a, b) => a.h * 60 + a.m - (b.h * 60 + b.m));
+      $("sheet").close();
+      publishSchedules();
     }
 
     // ---- MQTT ----
@@ -398,7 +873,7 @@
         setConn("מחובר", "ok");
         // retained messages arrive right away
         client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE, TOPIC_STATUS, TOPIC_BOOT, TOPIC_TIMER,
-                          TOPIC_SEEN, TOPIC_ACK, TOPIC_COMMAND, TOPIC_AWAKE]);
+                          TOPIC_SEEN, TOPIC_ACK, TOPIC_COMMAND, TOPIC_AWAKE, TOPIC_SCHEDULE]);
       });
 
       client.on("message", (topic, payload) => {
@@ -406,8 +881,10 @@
         if (topic === TOPIC_STATUS) { showDeviceStatus(text); return; }
         if (topic === TOPIC_SEEN) { showSeen(text); return; }
         if (topic === TOPIC_AWAKE) { awakeUntilS = parseInt(text, 10) || 0; tick(); return; }
+        if (topic === TOPIC_SCHEDULE) { schedules = parseSchedules(text); renderSchedules(); return; }
         if (topic === TOPIC_ACK) {
           if (lastCmd && text === lastCmd.id && lastAck !== text) justDone = Date.now();
+          if (cancelled && text === cancelled.id && lastAck !== text) { cancelled.done = true; cancelled.at = Date.now(); }
           lastAck = text; tick(); return;
         }
         if (topic === TOPIC_COMMAND) {
@@ -419,8 +896,7 @@
         if (topic === TOPIC_BOOT) { $("bootReason").textContent = BOOT_TEXT[text] || text; return; }
         if (topic === TOPIC_VERSION) { deviceVersion = text; refreshUpdateButton(); return; }
         if (topic === TOPIC_UPDATE) { showUpdateStatus(text); return; }
-        if (topic !== TOPIC_STATE) return;
-        showState(text);
+        if (topic === TOPIC_STATE) showState(text);
       });
 
       client.on("reconnect", () => setConn("מתחבר מחדש...", "connecting"));
@@ -445,7 +921,18 @@
       if (!client || !client.connected) return;
       const id = String(Date.now());
       lastCmd = { id, cmd: command };
+      cancelled = null;
       client.publish(TOPIC_COMMAND, id + "|" + command, { qos: 1, retain: true });
+      tick();
+    }
+    // Cancel = remove the waiting command from the broker, before the device wakes up.
+    function cancelCommand() {
+      if (!client || !client.connected || !lastCmd) return;
+      cancelled = { id: lastCmd.id, name: cmdName(lastCmd.cmd), at: Date.now(), done: false };
+      if (lastCmd.cmd === "update") { updating = false; $("updateMsg").textContent = ""; }
+      lastCmd = null;
+      client.publish(TOPIC_COMMAND, "", { qos: 1, retain: true });   // empty retained = delete
+      refreshUpdateButton();
       tick();
     }
 
@@ -461,9 +948,12 @@
       const b = e.target.closest("button[data-min]");
       if (!b) return;
       selectedMinutes = parseInt(b.dataset.min, 10);
-      document.querySelectorAll("#durations button").forEach((x) => x.classList.toggle("selected", x === b));
+      setSel("durations", "min", selectedMinutes);
+      $("btnOn").textContent = "הדלק ל־" + selectedMinutes + " דק׳";
     });
+    $("btnOn").textContent = "הדלק ל־" + selectedMinutes + " דק׳";
     $("btnOff").addEventListener("click", () => send("off"));
+    $("btnCancel").addEventListener("click", cancelCommand);
     $("btnUpdate").addEventListener("click", () => {
       if (!client || !client.connected) return;
       if (!confirm("לעדכן את המכשיר לגרסה " + availableVersion + "?\nהעדכון יתחיל כשהמכשיר יתעורר (עד דקה וחצי) ולוקח בערך דקה.")) return;
@@ -482,7 +972,36 @@
       show("login");
     });
 
+    // schedule editor events
+    $("btnAddSched").addEventListener("click", () => openSheet(-1));
+    $("fDur").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-min]"); if (!b) return;
+      fMin = parseInt(b.dataset.min, 10); setSel("fDur", "min", fMin);
+    });
+    $("fMode").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-mode]"); if (b) setMode(b.dataset.mode);
+    });
+    $("fDays").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-d]"); if (!b) return;
+      fMask ^= 1 << b.dataset.d; renderDays();
+    });
+    document.querySelector(".quick").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-mask]"); if (!b) return;
+      fMask = parseInt(b.dataset.mask, 10); renderDays();
+    });
+    $("fSave").addEventListener("click", saveSheet);
+    $("fClose").addEventListener("click", () => $("sheet").close());
+    $("fDelete").addEventListener("click", () => {
+      if (editIndex < 0) return;
+      schedules.splice(editIndex, 1);
+      $("sheet").close();
+      publishSchedules();
+    });
+    $("sheet").addEventListener("click", (e) => { if (e.target === $("sheet")) $("sheet").close(); });  // tap outside
+
     // ---- start ----
+    showState(null);
+    renderSchedules();
     loadAvailableVersion();
     const saved = loadLogin();
     if (saved) connect(saved, true);
