@@ -183,6 +183,7 @@
     const TOPIC_TIMER   = "home/lamp/timer";    // "0" / end time (seconds) / "left:<seconds>"
     const TOPIC_SEEN    = "home/lamp/seen";     // "<epoch>,<sleep seconds>"
     const TOPIC_ACK     = "home/lamp/ack";      // id of the last command the device did
+    const TOPIC_AWAKE   = "home/lamp/awake";    // "stay awake" until <epoch>, or "0"
     const STORAGE_KEY   = "wallSwitchLogin";
     const CMD_LATE_S    = 5 * 60;    // not done after 5 min -> show a warning
     const CMD_MAX_AGE_S = 15 * 60;   // the device ignores older commands
@@ -195,6 +196,7 @@
     let lastCmd = null;           // { id, cmd } - the command waiting on the broker
     let lastAck = null;           // id of the last command done
     let justDone = 0;             // to show "done" for a few seconds
+    let awakeUntilS = 0;          // "stay awake" mode ends at this time (0 = off)
     let deviceVersion = null;     // reported by the device
     let availableVersion = null;  // from firmware/version.json on this site
     let updating = false;
@@ -277,7 +279,12 @@
       const el = $("devStatus");
       const nextWake = seenS + sleepS;          // when it should wake up next
       let late = false;
-      if (devStatus === "online") {
+      const inAwakeMode = awakeUntilS > now;
+      $("btnAwake").textContent = inAwakeMode ? "חזור לשינה" : "השאר ער 10 דקות (פקודות מיידיות)";
+      if (devStatus === "online" && inAwakeMode) {
+        const until = new Date(awakeUntilS * 1000).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        el.textContent = "ער עד " + until; el.className = "dev-online";
+      } else if (devStatus === "online") {
         el.textContent = "ער"; el.className = "dev-online";
       } else if (devStatus === "sleeping" && seenS) {
         const left = Math.round(nextWake - now);
@@ -296,7 +303,7 @@
       m.className = "msg";
       if (lastCmd && lastCmd.id !== lastAck) {
         const age = now - lastCmd.id / 1000;
-        const name = NAMES[lastCmd.cmd.split(":")[0]] || lastCmd.cmd;
+        const name = lastCmd.cmd === "awake:0" ? "חזרה לשינה" : (NAMES[lastCmd.cmd.split(":")[0]] || lastCmd.cmd);
         if (age > CMD_MAX_AGE_S) {
           m.textContent = name + " – לא בוצע: המכשיר לא התעורר 15 דקות, והפקודה בוטלה.";
           m.className = "msg bad";
@@ -320,15 +327,14 @@
     }
     setInterval(tick, 1000);
     const BOOT_TEXT = {
-      "power on": "חיבור לחשמל",
-      "brownout (voltage dropped)": "ירידת מתח",
-      "watchdog (code was stuck)": "Watchdog – הקוד נתקע",
-      "crash": "קריסה",
-      "restart: after update": "אחרי עדכון",
-      "restart: no Wi-Fi for 5 min": "אתחול – 5 דקות בלי Wi-Fi",
-      "restart: no broker for 10 min": "אתחול – 10 דקות בלי broker",
-      "restart: setup mode timed out": "אתחול – מצב הגדרה הסתיים",
-      "restart: Wi-Fi reset (BOOT button)": "איפוס Wi-Fi (BOOT)",
+      "power on": "החשמל נותק וחזר (למשל החלפת סוללות)",
+      "brownout (voltage dropped)": "ירידת מתח – כנראה סוללה חלשה",
+      "watchdog (code was stuck)": "התוכנה נתקעה ואותחלה אוטומטית",
+      "crash": "קריסת תוכנה",
+      "restart": "אתחול",
+      "restart: after update": "אחרי עדכון תוכנה",
+      "restart: Wi-Fi reset (BOOT button)": "איפוס הגדרות Wi-Fi",
+      "restart: setup mode timed out": "מצב הגדרה הסתיים",
     };
 
     // ---- software update ----
@@ -392,13 +398,14 @@
         setConn("מחובר", "ok");
         // retained messages arrive right away
         client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE, TOPIC_STATUS, TOPIC_BOOT, TOPIC_TIMER,
-                          TOPIC_SEEN, TOPIC_ACK, TOPIC_COMMAND]);
+                          TOPIC_SEEN, TOPIC_ACK, TOPIC_COMMAND, TOPIC_AWAKE]);
       });
 
       client.on("message", (topic, payload) => {
         const text = payload.toString().trim();
         if (topic === TOPIC_STATUS) { showDeviceStatus(text); return; }
         if (topic === TOPIC_SEEN) { showSeen(text); return; }
+        if (topic === TOPIC_AWAKE) { awakeUntilS = parseInt(text, 10) || 0; tick(); return; }
         if (topic === TOPIC_ACK) {
           if (lastCmd && text === lastCmd.id && lastAck !== text) justDone = Date.now();
           lastAck = text; tick(); return;
@@ -465,7 +472,7 @@
       refreshUpdateButton();
       send("update");
     });
-    $("btnAwake").addEventListener("click", () => send("awake:10"));
+    $("btnAwake").addEventListener("click", () => send(awakeUntilS > Date.now() / 1000 ? "awake:0" : "awake:10"));
     $("logout").addEventListener("click", () => {
       if (client) client.end(true);
       client = null;
