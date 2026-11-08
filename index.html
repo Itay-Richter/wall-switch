@@ -105,6 +105,9 @@
     .hint { text-align: center; color: var(--muted); font-size: 0.85rem; margin: 6px 0 14px; }
     .dev-online { color: var(--ok) !important; }
     .dev-offline { color: var(--bad) !important; }
+    .dev-sleep { color: var(--muted) !important; }
+    .msg.bad { color: var(--bad); }
+    .msg.good { color: var(--ok); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -135,6 +138,7 @@
     <!-- Control -->
     <section id="control" class="card" hidden>
       <div class="kv"><span>המכשיר</span><b id="devStatus">לא ידוע</b></div>
+      <div class="kv"><span>נראה לאחרונה</span><b id="devSeen">—</b></div>
       <div id="state" class="state">מצב לא ידוע</div>
       <p id="countdown" class="countdown" hidden></p>
       <div class="durations" id="durations">
@@ -151,6 +155,7 @@
         <button id="btnOff" class="btn-off" disabled>כבה</button>
       </div>
       <p id="msg" class="msg"></p>
+      <button id="btnAwake" class="link">השאר ער 10 דקות (פקודות מיידיות)</button>
     </section>
 
     <!-- Software update -->
@@ -173,15 +178,23 @@
     const TOPIC_STATE   = "home/lamp/state";
     const TOPIC_VERSION = "home/lamp/version";
     const TOPIC_UPDATE  = "home/lamp/update";
-    const TOPIC_STATUS  = "home/lamp/status";   // online / offline (Last Will)
+    const TOPIC_STATUS  = "home/lamp/status";   // online (awake) / sleeping
     const TOPIC_BOOT    = "home/lamp/boot";     // why the device last started
     const TOPIC_TIMER   = "home/lamp/timer";    // "0" / end time (seconds) / "left:<seconds>"
+    const TOPIC_SEEN    = "home/lamp/seen";     // "<epoch>,<sleep seconds>"
+    const TOPIC_ACK     = "home/lamp/ack";      // id of the last command the device did
     const STORAGE_KEY   = "wallSwitchLogin";
-    const REPLY_TIMEOUT_MS = 5000;
+    const CMD_LATE_S    = 5 * 60;    // not done after 5 min -> show a warning
+    const CMD_MAX_AGE_S = 15 * 60;   // the device ignores older commands
+    const NAMES = { on: "הדלקה", off: "כיבוי", update: "עדכון", awake: "השאר ער" };
 
     const $ = (id) => document.getElementById(id);
     let client = null;
-    let replyTimer = null;
+    let devStatus = null;         // "online" (awake) / "sleeping"
+    let seenS = 0, sleepS = 0;    // last time the device was seen + how long it sleeps
+    let lastCmd = null;           // { id, cmd } - the command waiting on the broker
+    let lastAck = null;           // id of the last command done
+    let justDone = 0;             // to show "done" for a few seconds
     let deviceVersion = null;     // reported by the device
     let availableVersion = null;  // from firmware/version.json on this site
     let updating = false;
@@ -236,20 +249,76 @@
       refreshButtons();
     }
     function refreshButtons() {
-      const ready = client && client.connected && deviceOnline !== false;
+      // The device sleeps most of the time - commands wait for it on the broker.
+      const ready = client && client.connected;
       $("btnOn").disabled = !ready;
       $("btnOff").disabled = !ready;
       refreshUpdateButton();
     }
     function showDeviceStatus(text) {
-      deviceOnline = text === "online";
-      const el = $("devStatus");
-      el.textContent = deviceOnline ? "מחובר" : "לא מחובר";
-      el.className = deviceOnline ? "dev-online" : "dev-offline";
-      if (!deviceOnline) $("msg").textContent = "המכשיר לא מחובר. ייתכן שאין לו חשמל או אינטרנט.";
-      else if ($("msg").textContent.startsWith("המכשיר לא מחובר")) $("msg").textContent = "";
-      refreshButtons();
+      devStatus = text;
+      deviceOnline = text === "online" || text === "sleeping";
+      tick();
     }
+    function showSeen(text) {
+      const [t, sl] = text.split(",");
+      seenS = parseInt(t, 10) || 0;
+      sleepS = parseInt(sl, 10) || 0;
+      tick();
+    }
+    function ago(sec) {
+      if (sec < 60) return "לפני " + sec + " שניות";
+      if (sec < 3600) return "לפני " + Math.round(sec / 60) + " דקות";
+      return new Date(seenS * 1000).toLocaleString("he-IL", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    }
+    // Runs every second: device status, "last seen", and the waiting command.
+    function tick() {
+      const now = Date.now() / 1000;
+      const el = $("devStatus");
+      const nextWake = seenS + sleepS;          // when it should wake up next
+      let late = false;
+      if (devStatus === "online") {
+        el.textContent = "ער"; el.className = "dev-online";
+      } else if (devStatus === "sleeping" && seenS) {
+        const left = Math.round(nextWake - now);
+        late = left < -120;                      // 2 min past the expected wake-up
+        if (late) { el.textContent = "לא מגיב"; el.className = "dev-offline"; }
+        else { el.textContent = left > 0 ? "ישן · מתעורר בעוד " + left + " שנ׳" : "מתעורר..."; el.className = "dev-sleep"; }
+      } else if (devStatus === "offline") {
+        el.textContent = "לא מחובר"; el.className = "dev-offline";
+      } else {
+        el.textContent = "לא ידוע"; el.className = "";
+      }
+      $("devSeen").textContent = devStatus === "online" ? "עכשיו" : (seenS ? ago(Math.max(0, Math.round(now - seenS))) : "—");
+
+      // The waiting command
+      const m = $("msg");
+      m.className = "msg";
+      if (lastCmd && lastCmd.id !== lastAck) {
+        const age = now - lastCmd.id / 1000;
+        const name = NAMES[lastCmd.cmd.split(":")[0]] || lastCmd.cmd;
+        if (age > CMD_MAX_AGE_S) {
+          m.textContent = name + " – לא בוצע: המכשיר לא התעורר 15 דקות, והפקודה בוטלה.";
+          m.className = "msg bad";
+        } else if (age > CMD_LATE_S || late) {
+          m.textContent = name + " – עוד לא בוצע. ייתכן שלמכשיר אין חשמל או אינטרנט.";
+          m.className = "msg bad";
+        } else if (devStatus === "online") {
+          m.textContent = name + " – מבצע...";
+        } else {
+          const left = Math.round(nextWake - now);
+          m.textContent = name + " – נשלח, יתבצע כשהמכשיר יתעורר" + (left > 0 ? " (בעוד כ־" + left + " שנ׳)" : "...");
+        }
+      } else if (Date.now() - justDone < 4000) {
+        m.textContent = "בוצע ✓"; m.className = "msg good";
+      } else if (late) {
+        m.textContent = "המכשיר לא התעורר בזמן. ייתכן שאין לו חשמל או אינטרנט.";
+        m.className = "msg bad";
+      } else {
+        m.textContent = "";
+      }
+    }
+    setInterval(tick, 1000);
     const BOOT_TEXT = {
       "power on": "חיבור לחשמל",
       "brownout (voltage dropped)": "ירידת מתח",
@@ -266,7 +335,7 @@
     function refreshUpdateButton() {
       $("devVersion").textContent = deviceVersion || "—";
       $("newVersion").textContent = availableVersion || "—";
-      const connected = client && client.connected && deviceOnline !== false;
+      const connected = client && client.connected;
       const hasNew = deviceVersion && availableVersion && deviceVersion !== availableVersion;
       $("btnUpdate").disabled = !(connected && hasNew && !updating);
       if (!updating && deviceVersion && availableVersion && !hasNew) {
@@ -322,19 +391,28 @@
         if (remember) saveLogin(login);
         setConn("מחובר", "ok");
         // retained messages arrive right away
-        client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE, TOPIC_STATUS, TOPIC_BOOT, TOPIC_TIMER]);
+        client.subscribe([TOPIC_STATE, TOPIC_VERSION, TOPIC_UPDATE, TOPIC_STATUS, TOPIC_BOOT, TOPIC_TIMER,
+                          TOPIC_SEEN, TOPIC_ACK, TOPIC_COMMAND]);
       });
 
       client.on("message", (topic, payload) => {
         const text = payload.toString().trim();
         if (topic === TOPIC_STATUS) { showDeviceStatus(text); return; }
+        if (topic === TOPIC_SEEN) { showSeen(text); return; }
+        if (topic === TOPIC_ACK) {
+          if (lastCmd && text === lastCmd.id && lastAck !== text) justDone = Date.now();
+          lastAck = text; tick(); return;
+        }
+        if (topic === TOPIC_COMMAND) {
+          const bar = text.indexOf("|");
+          lastCmd = bar > 0 ? { id: text.slice(0, bar), cmd: text.slice(bar + 1) } : null;
+          tick(); return;
+        }
         if (topic === TOPIC_TIMER) { showTimer(text); return; }
         if (topic === TOPIC_BOOT) { $("bootReason").textContent = BOOT_TEXT[text] || text; return; }
         if (topic === TOPIC_VERSION) { deviceVersion = text; refreshUpdateButton(); return; }
         if (topic === TOPIC_UPDATE) { showUpdateStatus(text); return; }
         if (topic !== TOPIC_STATE) return;
-        clearTimeout(replyTimer);
-        $("msg").textContent = "";
         showState(text);
       });
 
@@ -354,14 +432,14 @@
       });
     }
 
+    // Commands wait on the broker (retained) until the device wakes up.
+    // Format "<id>|<command>", id = send time in ms (the device ignores repeats and old ones).
     function send(command) {
       if (!client || !client.connected) return;
-      client.publish(TOPIC_COMMAND, command);
-      $("msg").textContent = "שולח...";
-      clearTimeout(replyTimer);
-      replyTimer = setTimeout(() => {
-        $("msg").textContent = "המכשיר לא ענה. ייתכן שהוא כבוי או לא מחובר.";
-      }, REPLY_TIMEOUT_MS);
+      const id = String(Date.now());
+      lastCmd = { id, cmd: command };
+      client.publish(TOPIC_COMMAND, id + "|" + command, { qos: 1, retain: true });
+      tick();
     }
 
     // ---- events ----
@@ -381,12 +459,13 @@
     $("btnOff").addEventListener("click", () => send("off"));
     $("btnUpdate").addEventListener("click", () => {
       if (!client || !client.connected) return;
-      if (!confirm("לעדכן את המכשיר לגרסה " + availableVersion + "?\nזה לוקח בערך דקה, ובזמן הזה המכשיר לא יגיב.")) return;
+      if (!confirm("לעדכן את המכשיר לגרסה " + availableVersion + "?\nהעדכון יתחיל כשהמכשיר יתעורר (עד דקה וחצי) ולוקח בערך דקה.")) return;
       updating = true;
-      $("updateMsg").textContent = "שולח בקשת עדכון...";
+      $("updateMsg").textContent = "בקשת העדכון נשלחה – תתחיל כשהמכשיר יתעורר.";
       refreshUpdateButton();
-      client.publish(TOPIC_COMMAND, "update");
+      send("update");
     });
+    $("btnAwake").addEventListener("click", () => send("awake:10"));
     $("logout").addEventListener("click", () => {
       if (client) client.end(true);
       client = null;
